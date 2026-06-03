@@ -1,0 +1,21 @@
+# Build directories and files
+build/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+*.cmake
+*.a
+*.exe
+*.obj
+
+# Generated test data
+*.bin
+test_data.bin
+
+# IDE and Agent files
+.agent/
+.vscode/
+.idea/
+
+# User requested exclusions
+docs/
