@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Create library
 add_library(vectorforge
     src/distance.cpp
+    src/flat_index.cpp
 )
 
 # Include headers
@@ -40,3 +41,8 @@ add_test(NAME basic_test COMMAND test_basic)
 add_executable(test_distance tests/test_distance.cpp)
 target_link_libraries(test_distance vectorforge gtest_main)
 add_test(NAME distance_test COMMAND test_distance)
+
+# Create flat index test executable
+add_executable(test_flat_index tests/test_flat_index.cpp)
+target_link_libraries(test_flat_index vectorforge gtest_main)
+add_test(NAME flat_index_test COMMAND test_flat_index)
