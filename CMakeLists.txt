@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD 17)
 add_library(vectorforge
     src/distance.cpp
     src/flat_index.cpp
+    src/thread_pool.cpp
+    src/kmeans.cpp
+    src/ivf_index.cpp
 )
 
 # Include headers
@@ -46,3 +49,18 @@ add_test(NAME distance_test COMMAND test_distance)
 add_executable(test_flat_index tests/test_flat_index.cpp)
 target_link_libraries(test_flat_index vectorforge gtest_main)
 add_test(NAME flat_index_test COMMAND test_flat_index)
+
+# Create thread pool test executable
+add_executable(test_thread_pool tests/test_thread_pool.cpp)
+target_link_libraries(test_thread_pool vectorforge gtest_main)
+add_test(NAME thread_pool_test COMMAND test_thread_pool)
+
+# Create kmeans test executable
+add_executable(test_kmeans tests/test_kmeans.cpp)
+target_link_libraries(test_kmeans vectorforge gtest_main)
+add_test(NAME kmeans_test COMMAND test_kmeans)
+
+# Create ivf index test executable
+add_executable(test_ivf_index tests/test_ivf_index.cpp)
+target_link_libraries(test_ivf_index vectorforge gtest_main)
+add_test(NAME ivf_index_test COMMAND test_ivf_index)
