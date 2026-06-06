@@ -4,6 +4,7 @@
 #include <vector>
 #include <shared_mutex>
 #include <cstddef>
+#include <string>
 
 namespace vectorforge {
 
@@ -13,6 +14,10 @@ public:
     void add(size_t id, const float* vector);
     std::vector<SearchResult> search(const float* query, size_t k) const;
     size_t size() const;
+
+    // Persistence
+    void save(const std::string& filename) const;
+    void load(const std::string& filename);
 
 private:
     size_t dim_;

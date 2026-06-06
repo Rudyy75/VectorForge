@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <mutex>
+#include <fstream>
 
 namespace vectorforge {
 
@@ -128,6 +129,72 @@ std::vector<SearchResult> FlatIndex::search(const float* query, size_t k) const 
     std::reverse(results.begin(), results.end());
     
     return results;
+}
+
+void FlatIndex::save(const std::string& filename) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_); // Read lock
+    
+    std::ofstream out(filename, std::ios::binary);
+    if (!out) throw std::runtime_error("Failed to open file for writing: " + filename);
+
+    const char magic[] = "VF_FLAT\0"; // 8 bytes
+    out.write(magic, 8);
+
+    uint64_t dim = dim_;
+    uint32_t metric = static_cast<uint32_t>(metric_);
+    uint64_t num_vectors = data_.size() / dim_;
+
+    out.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+    out.write(reinterpret_cast<const char*>(&metric), sizeof(metric));
+    out.write(reinterpret_cast<const char*>(&num_vectors), sizeof(num_vectors));
+
+    if (num_vectors > 0) {
+        // Write float data
+        out.write(reinterpret_cast<const char*>(data_.data()), data_.size() * sizeof(float));
+        
+        // Write IDs
+        for (size_t id : ids_) {
+            uint64_t id64 = static_cast<uint64_t>(id);
+            out.write(reinterpret_cast<const char*>(&id64), sizeof(id64));
+        }
+    }
+}
+
+void FlatIndex::load(const std::string& filename) {
+    std::unique_lock<std::shared_mutex> lock(mutex_); // Write lock
+    
+    std::ifstream in(filename, std::ios::binary);
+    if (!in) throw std::runtime_error("Failed to open file for reading: " + filename);
+
+    char magic[8];
+    in.read(magic, 8);
+    if (std::string(magic, 8) != std::string("VF_FLAT\0", 8)) {
+        throw std::runtime_error("Invalid file format or corrupted index file: " + filename);
+    }
+
+    uint64_t dim;
+    uint32_t metric;
+    uint64_t num_vectors;
+
+    in.read(reinterpret_cast<char*>(&dim), sizeof(dim));
+    in.read(reinterpret_cast<char*>(&metric), sizeof(metric));
+    in.read(reinterpret_cast<char*>(&num_vectors), sizeof(num_vectors));
+
+    dim_ = static_cast<size_t>(dim);
+    metric_ = static_cast<MetricType>(metric);
+
+    data_.resize(num_vectors * dim_);
+    ids_.resize(num_vectors);
+
+    if (num_vectors > 0) {
+        in.read(reinterpret_cast<char*>(data_.data()), data_.size() * sizeof(float));
+        
+        for (size_t i = 0; i < num_vectors; ++i) {
+            uint64_t id64;
+            in.read(reinterpret_cast<char*>(&id64), sizeof(id64));
+            ids_[i] = static_cast<size_t>(id64);
+        }
+    }
 }
 
 }

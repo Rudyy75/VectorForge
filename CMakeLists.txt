@@ -64,3 +64,8 @@ add_test(NAME kmeans_test COMMAND test_kmeans)
 add_executable(test_ivf_index tests/test_ivf_index.cpp)
 target_link_libraries(test_ivf_index vectorforge gtest_main)
 add_test(NAME ivf_index_test COMMAND test_ivf_index)
+
+# Create persistence test executable
+add_executable(test_persistence tests/test_persistence.cpp)
+target_link_libraries(test_persistence vectorforge gtest_main)
+add_test(NAME persistence_test COMMAND test_persistence)

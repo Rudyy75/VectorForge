@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include <fstream>
+#include <cstdint>
 
 namespace vectorforge {
 
@@ -281,6 +283,92 @@ std::pair<std::vector<float>, std::vector<size_t>> IVFIndex::search(
     }
     
     return {all_distances, all_ids};
+}
+
+void IVFIndex::save(const std::string& filename) const {
+    if (!is_trained_) throw std::runtime_error("Cannot save untrained IVFIndex");
+
+    std::ofstream out(filename, std::ios::binary);
+    if (!out) throw std::runtime_error("Failed to open file for writing: " + filename);
+
+    const char magic[] = "VF_IVF\0\0"; // 8 bytes
+    out.write(magic, 8);
+
+    uint64_t dim = dim_;
+    uint64_t nlist = nlist_;
+    uint64_t nprobe = nprobe_;
+    uint32_t metric = static_cast<uint32_t>(metric_);
+
+    out.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+    out.write(reinterpret_cast<const char*>(&nlist), sizeof(nlist));
+    out.write(reinterpret_cast<const char*>(&nprobe), sizeof(nprobe));
+    out.write(reinterpret_cast<const char*>(&metric), sizeof(metric));
+
+    out.write(reinterpret_cast<const char*>(centroids_.data()), centroids_.size() * sizeof(float));
+
+    for (size_t i = 0; i < nlist_; ++i) {
+        std::shared_lock<std::shared_mutex> lock(buckets_[i]->mtx);
+        uint64_t num_vectors = buckets_[i]->ids.size();
+        out.write(reinterpret_cast<const char*>(&num_vectors), sizeof(num_vectors));
+
+        if (num_vectors > 0) {
+            out.write(reinterpret_cast<const char*>(buckets_[i]->data.data()), buckets_[i]->data.size() * sizeof(float));
+            for (size_t id : buckets_[i]->ids) {
+                uint64_t id64 = static_cast<uint64_t>(id);
+                out.write(reinterpret_cast<const char*>(&id64), sizeof(id64));
+            }
+        }
+    }
+}
+
+void IVFIndex::load(const std::string& filename) {
+    std::ifstream in(filename, std::ios::binary);
+    if (!in) throw std::runtime_error("Failed to open file for reading: " + filename);
+
+    char magic[8];
+    in.read(magic, 8);
+    if (std::string(magic, 8) != std::string("VF_IVF\0\0", 8)) {
+        throw std::runtime_error("Invalid file format or corrupted IVF index file: " + filename);
+    }
+
+    uint64_t dim, nlist, nprobe;
+    uint32_t metric;
+
+    in.read(reinterpret_cast<char*>(&dim), sizeof(dim));
+    in.read(reinterpret_cast<char*>(&nlist), sizeof(nlist));
+    in.read(reinterpret_cast<char*>(&nprobe), sizeof(nprobe));
+    in.read(reinterpret_cast<char*>(&metric), sizeof(metric));
+
+    dim_ = static_cast<size_t>(dim);
+    nlist_ = static_cast<size_t>(nlist);
+    nprobe_ = static_cast<size_t>(nprobe);
+    metric_ = static_cast<MetricType>(metric);
+    is_trained_ = true;
+
+    centroids_.resize(nlist_ * dim_);
+    in.read(reinterpret_cast<char*>(centroids_.data()), centroids_.size() * sizeof(float));
+
+    buckets_.clear();
+    for (size_t i = 0; i < nlist_; ++i) {
+        auto bucket = std::make_unique<Bucket>();
+        
+        uint64_t num_vectors;
+        in.read(reinterpret_cast<char*>(&num_vectors), sizeof(num_vectors));
+        
+        if (num_vectors > 0) {
+            bucket->data.resize(num_vectors * dim_);
+            bucket->ids.resize(num_vectors);
+            
+            in.read(reinterpret_cast<char*>(bucket->data.data()), bucket->data.size() * sizeof(float));
+            
+            for (size_t j = 0; j < num_vectors; ++j) {
+                uint64_t id64;
+                in.read(reinterpret_cast<char*>(&id64), sizeof(id64));
+                bucket->ids[j] = static_cast<size_t>(id64);
+            }
+        }
+        buckets_.push_back(std::move(bucket));
+    }
 }
 
 }

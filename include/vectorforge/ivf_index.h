@@ -9,6 +9,7 @@
 #include <memory>
 #include <queue>
 #include <utility>
+#include <string>
 
 namespace vectorforge {
 
@@ -34,6 +35,10 @@ public:
         const float* queries, size_t num_queries, size_t k, ThreadPool* pool = nullptr) const;
         
     size_t size() const;
+
+    // Persistence
+    void save(const std::string& filename) const;
+    void load(const std::string& filename);
 
 private:
     size_t dim_;
