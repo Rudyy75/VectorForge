@@ -27,11 +27,18 @@ endif()
 include(FetchContent)
 
 FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/heads/main.zip
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        release-1.12.1
 )
 
-FetchContent_MakeAvailable(googletest)
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.11.1
+)
+
+FetchContent_MakeAvailable(googletest pybind11)
 
 enable_testing()
 
@@ -69,3 +76,12 @@ add_test(NAME ivf_index_test COMMAND test_ivf_index)
 add_executable(test_persistence tests/test_persistence.cpp)
 target_link_libraries(test_persistence vectorforge gtest_main)
 add_test(NAME persistence_test COMMAND test_persistence)
+
+# Python Bindings
+pybind11_add_module(vectorforge_py python/bindings.cpp)
+target_link_libraries(vectorforge_py PRIVATE vectorforge)
+set_target_properties(vectorforge_py PROPERTIES OUTPUT_NAME "vectorforge")
+
+if(MINGW)
+    target_link_options(vectorforge_py PRIVATE -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive)
+endif()
