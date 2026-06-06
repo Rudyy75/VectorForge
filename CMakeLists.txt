@@ -85,3 +85,35 @@ set_target_properties(vectorforge_py PROPERTIES OUTPUT_NAME "vectorforge")
 if(MINGW)
     target_link_options(vectorforge_py PRIVATE -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive)
 endif()
+
+# Fetch JSON and Crow
+FetchContent_Declare(json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+)
+
+FetchContent_Declare(asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG        asio-1-28-0
+)
+FetchContent_MakeAvailable(asio)
+set(ASIO_INCLUDE_DIR ${asio_SOURCE_DIR}/asio/include CACHE PATH "" FORCE)
+
+set(CROW_FETCH_ASIO ON CACHE BOOL "" FORCE)
+set(CROW_FEATURES "asio" CACHE STRING "" FORCE)
+FetchContent_Declare(crow
+    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+    GIT_TAG        v1.2.0
+)
+
+FetchContent_MakeAvailable(json crow)
+
+# Create Server Executable
+add_executable(vectorforge_server api/server.cpp)
+target_link_libraries(vectorforge_server PRIVATE vectorforge nlohmann_json::nlohmann_json Crow::Crow)
+if(MINGW OR WIN32)
+    target_link_libraries(vectorforge_server PRIVATE ws2_32 mswsock)
+    if(MINGW)
+        target_link_options(vectorforge_server PRIVATE -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive)
+    endif()
+endif()
