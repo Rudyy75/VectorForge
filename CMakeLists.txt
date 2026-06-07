@@ -3,6 +3,7 @@ project(VectorForge)
 
 # Use C++17
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Create library
 add_library(vectorforge
