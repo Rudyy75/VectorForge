@@ -1,5 +1,7 @@
 # VectorForge
 
+[![CI](https://github.com/Rudyy75/VectorForge/actions/workflows/ci.yml/badge.svg)](https://github.com/Rudyy75/VectorForge/actions/workflows/ci.yml)
+
 A production-grade vector search engine written from scratch in C++17. Built with AVX2/FMA3 SIMD intrinsics, IVF indexing with K-Means++ clustering, memory-mapped persistence, zero-copy Python bindings, and an HTTP REST API.
 
 ---
@@ -19,27 +21,43 @@ A production-grade vector search engine written from scratch in C++17. Built wit
 
 ```mermaid
 graph TD
-    subgraph Clients
+    %% Node Styling
+    classDef default fill:#272727,stroke:#666666,stroke-width:1px,color:#ffffff;
+    
+    subgraph Clients ["Clients"]
         PY[Python / NumPy]
         HTTP[Any HTTP Client]
     end
+    style Clients fill:none,stroke:#a2345e,stroke-width:2px,color:#ffffff
 
-    subgraph VectorForge
-        PY -->|Zero-Copy PyBind11| CORE[Engine Core<br/>C++17 / AVX2]
-        HTTP -->|REST JSON| CROW[Crow Server]
-        CROW --> CORE
+    subgraph VectorForge ["VectorForge Engine"]
+        CORE[Engine Core<br/>C++17 / AVX2]
+        CROW[Crow Server]
+        
+        FLAT[FlatIndex<br/>Brute-Force]
+        IVF[IVFIndex<br/>K-Means++ Clustering]
 
-        CORE --> FLAT[FlatIndex<br/>Brute-Force]
-        CORE --> IVF[IVFIndex<br/>K-Means++ Clustering]
-
-        FLAT --> PERSIST[Persistence<br/>Binary + mmap]
-        IVF --> PERSIST
+        PERSIST[Persistence<br/>Binary + mmap]
     end
+    style VectorForge fill:#141b2d,stroke:#1e293b,stroke-width:2px,color:#ffffff
+
+    PY -->|Zero-Copy PyBind11| CORE
+    HTTP -->|REST JSON| CROW
+    CROW --> CORE
+
+    CORE --> FLAT
+    CORE --> IVF
+
+    FLAT --> PERSIST
+    IVF --> PERSIST
 ```
 
 ```mermaid
 graph LR
-    subgraph Search Pipeline
+    %% Node Styling
+    classDef default fill:#272727,stroke:#666666,stroke-width:1px,color:#ffffff;
+
+    subgraph Pipeline ["Search Pipeline"]
         Q[Query Vector] --> CQ[Coarse Quantizer<br/>Find nearest centroids]
         CQ --> IL1[Inverted List 1]
         CQ --> IL2[Inverted List 2]
@@ -49,6 +67,7 @@ graph LR
         ILn --> SIMD
         SIMD --> TOPK[Top-K Heap]
     end
+    style Pipeline fill:#141b2d,stroke:#0984e3,stroke-width:2px,color:#ffffff
 ```
 
 ---
@@ -147,6 +166,22 @@ cmake --build build --config Release
 ```
 
 CMake will automatically fetch GoogleTest, PyBind11, Crow, ASIO, and nlohmann_json via `FetchContent`.
+
+---
+
+## Testing & CI
+
+VectorForge uses GitHub Actions for Continuous Integration. Every push and pull request to the `main` branch automatically triggers a pipeline that:
+1. Builds the C++ engine, REST API, and Python bindings.
+2. Runs the C++ unit tests (Distance, FlatIndex, IVFIndex, etc.) using CTest.
+3. Tests the zero-copy Python bindings.
+4. Starts the REST API server and runs endpoint integration tests.
+
+To run the tests locally:
+```bash
+cd build
+ctest --output-on-failure
+```
 
 ---
 
