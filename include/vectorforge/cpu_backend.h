@@ -21,7 +21,7 @@ public:
             
             // Max-heap for L2 (we want K smallest), Min-heap for Inner Product (we want K largest)
             auto cmp = [metric](const std::pair<float, size_t>& a, const std::pair<float, size_t>& b) {
-                if (metric == MetricType::INNER_PRODUCT || metric == MetricType::COSINE) {
+                if (metric == MetricType::IP || metric == MetricType::Cosine) {
                     return a.first > b.first; // Keep largest
                 }
                 return a.first < b.first; // Keep smallest (L2)
@@ -71,6 +71,18 @@ public:
 
     std::string name() const override { return "CPUBackend (AVX2/Scalar)"; }
     bool is_gpu() const override { return false; }
+
+private:
+    inline float compute_distance(const float* query, const float* vector, size_t dim, MetricType metric) const {
+        bool is_l2 = (metric == MetricType::L2);
+#ifdef __AVX2__
+        if (is_l2) return l2_distance_avx2(query, vector, dim);
+        else return dot_product_avx2(query, vector, dim); 
+#else
+        if (is_l2) return l2_distance_scalar(query, vector, dim);
+        else return dot_product_scalar(query, vector, dim);
+#endif
+    }
 };
 
 } 

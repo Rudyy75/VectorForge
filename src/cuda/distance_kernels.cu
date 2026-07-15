@@ -151,27 +151,39 @@ void compute_distances_batch(
     const float* d_queries, const float* d_vectors, float* d_distances, 
     size_t num_queries, size_t num_vectors, size_t dim, MetricType metric, cudaStream_t stream) 
 {
-    if (metric == MetricType::INNER_PRODUCT || metric == MetricType::COSINE) {
-        // cuBLAS handles large matrix multiplications instantly
-        cublasHandle_t handle;
-        cublasCreate(&handle);
-        cublasSetStream(handle, stream);
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasSetStream(handle, stream);
+    float alpha = -1.0f;
+    float beta = 0.0f;
+    cublasStatus_t status;
 
-        float alpha = -1.0f; // Return negative dot product so lower = closer
-        float beta = 0.0f;
-
-        // Perform matrix multiplication: Distances = Queries * Vectors^T
-        // cuBLAS uses column-major order, so we swap matrices A and B and set OP_T
-        cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N,
-                    num_vectors, num_queries, dim,
-                    &alpha, 
-                    d_vectors, dim, 
-                    d_queries, dim,
-                    &beta, 
-                    d_distances, num_vectors);
-
-        cublasDestroy(handle);
-    } else {
+    if (metric == MetricType::L2) {
+        status = cublasSgemm(
+            handle,
+            CUBLAS_OP_T, CUBLAS_OP_N,
+            num_vectors, num_queries, dim,
+            &alpha,
+            d_vectors, dim,
+            d_queries, dim,
+            &beta,
+            d_distances, num_vectors
+        );
+    } else if (metric == MetricType::IP || metric == MetricType::Cosine) {
+        status = cublasSgemm(
+            handle,
+            CUBLAS_OP_T, CUBLAS_OP_N,
+            num_vectors, num_queries, dim,
+            &alpha,
+            d_vectors, dim,
+            d_queries, dim,
+            &beta,
+            d_distances, num_vectors
+        );
+    }
+    cublasDestroy(handle);
+    
+    if (metric != MetricType::IP && metric != MetricType::Cosine && metric != MetricType::L2) {
         // L2 distance batching is mathematically complex in cuBLAS (||x-y||^2 = ||x||^2 + ||y||^2 - 2xy)
         // For simplicity, we fallback to launching our highly optimized single-query loop
         for (size_t q = 0; q < num_queries; ++q) {

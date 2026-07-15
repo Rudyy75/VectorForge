@@ -9,8 +9,8 @@
 
 namespace vectorforge {
 
-FlatIndex::FlatIndex(size_t dim, MetricType metric) 
-    : dim_(dim), metric_(metric) {
+FlatIndex::FlatIndex(size_t dim, MetricType metric, ComputeBackend* backend) 
+    : dim_(dim), metric_(metric), backend_(backend) {
     if (dim == 0) {
         throw std::invalid_argument("Dimension must be greater than 0");
     }
@@ -55,6 +55,24 @@ std::vector<SearchResult> FlatIndex::search(const float* query, size_t k) const 
     std::shared_lock<std::shared_mutex> lock(mutex_);
     size_t num_vectors = ids_.size();
     if (num_vectors == 0) return {};
+
+    if (backend_) {
+        std::vector<float> dists(k);
+        std::vector<size_t> ids(k);
+        
+        backend_->knn_search(
+            query, 1, 
+            data_.data(), num_vectors, 
+            dim_, k, metric_, 
+            dists.data(), ids.data()
+        );
+        
+        std::vector<SearchResult> results;
+        for (size_t i = 0; i < k; ++i) {
+            results.push_back({ids_[ids[i]], dists[i]});
+        }
+        return results;
+    }
     
     // If Cosine, we must also normalize the query before searching
     std::vector<float> normalized_query;
@@ -76,12 +94,11 @@ std::vector<SearchResult> FlatIndex::search(const float* query, size_t k) const 
     // Dot/Cosine: Larger is better (Min-Heap keeps the K largest)
     bool is_l2 = (metric_ == MetricType::L2);
     
-    auto cmp = [is_l2](const SearchResult& a, const SearchResult& b) {
-        if (is_l2) {
-            return a.distance < b.distance; // Max-Heap
-        } else {
-            return a.distance > b.distance; // Min-Heap
+    auto cmp = [this, is_l2](const SearchResult& a, const SearchResult& b) {
+        if (metric_ == MetricType::IP || metric_ == MetricType::Cosine) {
+            return a.distance > b.distance; 
         }
+        return a.distance < b.distance; 
     };
     
     std::priority_queue<SearchResult, std::vector<SearchResult>, decltype(cmp)> pq(cmp);

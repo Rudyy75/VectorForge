@@ -20,13 +20,19 @@ add_library(vectorforge
     src/thread_pool.cpp
     src/kmeans.cpp
     src/ivf_index.cpp
+    src/compute_backend.cpp
 )
+set_target_properties(vectorforge PROPERTIES OUTPUT_NAME "vectorforge_core")
 
 if(VECTORFORGE_ENABLE_CUDA)
     # The CUDA backend library
     add_library(vectorforge_cuda STATIC
-        # We will add .cu files here later, e.g., src/cuda/cuda_utils.cu
+        src/cuda/distance_kernels.cu
+        src/cuda/knn_kernels.cu
     )
+    if(MSVC)
+        target_compile_options(vectorforge_cuda PRIVATE -Xcompiler=/Zc:preprocessor)
+    endif()
     target_include_directories(vectorforge_cuda PUBLIC include)
     
     # Use cuBLAS for matrix operations
@@ -61,6 +67,7 @@ FetchContent_Declare(
     GIT_TAG        v2.11.1
 )
 
+set(PYBIND11_FINDPYTHON ON)
 FetchContent_MakeAvailable(googletest pybind11)
 
 enable_testing()
