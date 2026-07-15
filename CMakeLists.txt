@@ -5,6 +5,14 @@ project(VectorForge)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(VECTORFORGE_ENABLE_CUDA "Enable CUDA GPU acceleration" OFF)
+
+if(VECTORFORGE_ENABLE_CUDA)
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 17)
+    add_compile_definitions(VECTORFORGE_HAS_CUDA)
+endif()
+
 # Create library
 add_library(vectorforge
     src/distance.cpp
@@ -13,6 +21,20 @@ add_library(vectorforge
     src/kmeans.cpp
     src/ivf_index.cpp
 )
+
+if(VECTORFORGE_ENABLE_CUDA)
+    # The CUDA backend library
+    add_library(vectorforge_cuda STATIC
+        # We will add .cu files here later, e.g., src/cuda/cuda_utils.cu
+    )
+    target_include_directories(vectorforge_cuda PUBLIC include)
+    
+    # Use cuBLAS for matrix operations
+    target_link_libraries(vectorforge_cuda PRIVATE cublas)
+    
+    # Link the CUDA backend into the main library
+    target_link_libraries(vectorforge PUBLIC vectorforge_cuda)
+endif()
 
 # Include headers
 target_include_directories(vectorforge PUBLIC include)
